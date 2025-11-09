@@ -1,0 +1,133 @@
+Project: DBT with Databricks - Project Flow
+File: /workspaces/DBT-With-Databricks/project_flow.txt
+
+1) Purpose
+    - Define how to develop, test, and deploy dbt models targeting Databricks.
+    - Capture repeatable developer and CI/CD steps.
+
+2) Prerequisites
+    - Local: git, dbt-core (adapter: dbt-databricks), databricks-cli (optional), python, pip,uv
+    - CI runner: same or container image with dbt + databricks auth available
+    - Databricks workspace + token, target catalog/schema, compute configured
+    - Secrets manager (Databricks secret scope, HashiCorp Vault, or CI secret store)
+    - Data is stored in Databricks and we will be creating Fact and dim table using DBT.
+
+3) Repo layout (recommended)
+    - /models/         -- dbt models
+    - /macros/         -- dbt macros
+    - /tests/          -- custom tests if any
+    - /seeds/          -- csv seed files
+    - dbt_project.yml
+    - profiles.yml (not committed; use CI / secrets)
+    - /scripts/        -- helper scripts (deploy, run-local)
+    - README.md
+    - docs/            -- supplementary docs
+
+4) Local development flow
+    - Checkout branch:
+      git checkout -b feat/<short-description>
+    - Install and configure:
+      pip install uv
+      uv init
+      uv sync
+      source .venv/bin/activate
+      uv add -r requirements.txt
+    - Provide profile credentials (do NOT commit):
+      - Option A: ~./dbt/profiles.yml with databricks target
+      - Option B: use environment variables and databricks CLI + secret scopes
+
+    - Build and run quick iteration:
+      dbt debug --target <dev>
+      dbt run --models <model_name> --target <dev>
+      dbt test --models <model_name> --target <dev>
+      dbt run-operation <macro_name>  # if needed
+
+    - Use incremental materializations with small sample tables during dev to save compute.
+
+5) Testing strategy
+    - Unit tests: dbt tests (schema/data tests) run locally and in CI
+    - Integration: run full model graph in a smaller dev schema
+    - Snapshot tests: run dbt snapshot in controlled environment
+    - Seeded data: use seeds for deterministic test inputs
+
+6) Documentation
+    - Populate model descriptions, columns, tests
+    - Generate docs:
+      dbt docs generate --target <dev>
+      dbt docs serve (local) or publish artifacts to CI/CD artifact store
+
+7) CI/CD pipeline (PR checks)
+    - On PR:
+      - lint SQL (sqlfluff or custom linter)
+      - dbt parse
+      - dbt compile
+      - dbt run --models tag:ci --target ci (run fast subset)
+      - dbt test --models tag:ci --target ci
+      - generate docs artifacts and store as build artifacts
+    - Approve and merge after checks green and review.
+
+8) Deployment (main -> prod)
+    - Merge to main triggers deployment pipeline:
+      - Checkout main
+      - Build artifacts (manifest.json, run_results.json)
+      - Run full dbt run --target prod
+      - dbt test --target prod
+      - Optionally, run dbt snapshot --target prod
+    - Deployment options:
+      - CI runner triggers Databricks Jobs API to run notebooks or spark-submit of compiled SQL
+      - Use Databricks Jobs running dbt via a container or cluster (recommended: job runs a script that installs requirements and runs dbt)
+      - Or use dbt Cloud integration if available
+
+9) Databricks-specific notes
+    - Use Unity Catalog / catalogs if available; set catalog/schema in profiles
+    - Manage credentials via Databricks secret scopes; inject into profiles or env vars
+    - Prefer lightweight job clusters for short jobs; use job cluster templates for consistency
+    - Track job runs, cluster logs, and Spark UI for performance tuning
+    - Use runResults.json from dbt for job status reporting
+
+10) Rollback & Migration
+    - Keep migrations idempotent or reversible where possible
+    - If a deployment fails, restore by:
+      - Reverting to previous main commit and re-deploying
+      - Dropping problematic incremental partitions or reverting schema changes in Databricks
+
+11) Observability & Monitoring
+    - Capture dbt run_results.json and store in monitoring logs
+    - Export Databricks job metrics to monitoring (Datadog/Prometheus)
+    - Configure alerts for failed runs, large runtime regressions, test failures
+
+12) Useful commands (examples)
+    - Local debug:
+      dbt debug --target dev
+    - Run single model:
+      dbt run -m models/my_model --target dev
+    - Run model + dependencies:
+      dbt run -m my_model+ --target dev
+    - Run tests:
+      dbt test -m my_model --target dev
+    - Compile for CI:
+      dbt compile --target ci
+    - Generate docs:
+      dbt docs generate --target dev
+    - Databricks CLI example to trigger a job:
+      databricks jobs run-now --job-id <JOB_ID>
+
+13) Checklist before merging to main
+    - All dbt tests pass locally and in CI
+    - Data contract changes reviewed (schema changes approved)
+    - Docs updated
+    - Performance validated for heavy models
+    - Secrets/credentials not leaked in PR
+
+14) Troubleshooting tips
+    - "dbt debug" for connection issues
+    - Check Databricks job run logs and driver/executor stderr
+    - Use limited model runs (-m) to isolate failures
+    - Re-run failed tasks with increased logging or smaller inputs
+
+15) Notes & conventions
+    - Branch naming: feat/, fix/, chore/, hotfix/
+    - Commit messages: Conventional Commits preferred
+    - Tag production releases with semver tags
+
+End of file.

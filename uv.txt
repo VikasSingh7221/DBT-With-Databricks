@@ -1,0 +1,7 @@
+-- UV Commands used.
+1. uv init -> setup all files in project(equivalent to pip but not appropriately)
+2. if you want to use python other version just specify in .python-version and run "uv sync" automatically creates a .venv file or virtual env.
+3. uv add package_name : to add any package.
+4. uv remove package_name : to remove any package.
+5. activate venv : source .venv/bin/activate
+6.

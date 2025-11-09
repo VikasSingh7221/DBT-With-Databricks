@@ -1,0 +1,4 @@
+1. dbt init
+2. Enter Project Name : 
+3. add connection
+4. dbt debug to check (first do cd project_name).
