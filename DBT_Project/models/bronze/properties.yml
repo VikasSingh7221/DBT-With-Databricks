@@ -1,0 +1,43 @@
+version: 2
+
+models:
+  - name: bronze_date  # must match the model file name (case-sensitive)
+    description: "This table contains date information for the bronze layer."
+    config:
+      materialized: view
+
+  - name: bronze_sales  # must match the model file name (case-sensitive)
+    description: "This table contains sales information for the bronze layer."
+    config:
+      materialized: view
+    columns:
+      - name: sales_id
+        tests:
+          - unique
+          - not_null
+      - name: gross_amount
+        tests:
+          - generic_non_negative
+      - name: net_amount
+        tests:
+          - generic_non_negative
+
+  - name: bronze_store
+    description: "This table contains store information for the bronze layer."
+    config:
+      materialized: view
+    columns:
+      - name: store_sk
+        tests:
+          - unique
+          - not_null
+
+      - name: store_name
+        tests:
+          - accepted_values:
+              values:
+                - "MegaMart Manhattan"
+                - "MegaMart Brooklyn"
+                - "MegaMart Austin"
+                - "MegaMart San Jose"
+                - "MegaMart Toronto"
